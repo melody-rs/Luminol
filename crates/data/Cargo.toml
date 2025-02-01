@@ -43,3 +43,4 @@ egui.workspace = true
 # * Misc * #
 rand.workspace = true
 flate2 = "1.0"        # DEFLATE compression and decompression exposed as Read/BufRead/Write streams
+indextree.workspace = true

@@ -21,15 +21,15 @@
 // it with Steamworks API by Valve Corporation, containing parts covered by
 // terms of the Steamworks API by Valve Corporation, the licensors of this
 // Program grant you additional permission to convey the resulting work.
+use super::{DataFormat, RGSSVer, RMVer, VolumeScale};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-
-use super::{command_db, DataFormat, RGSSVer, RMVer, VolumeScale};
 
 #[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 pub struct Config {
     pub project: Project,
-    pub command_db: command_db::CommandDB,
+    pub command_db: luminol_data::CommandDB,
     pub game_ini: ini::Ini,
 }
 
@@ -65,6 +65,21 @@ impl Default for Project {
     }
 }
 
+static XP_COMMANDS: Lazy<luminol_data::CommandSet> = Lazy::new(|| {
+    let dir = luminol_macros::include_asset_dir_ids!("assets/commands/XP");
+    dir.into_iter()
+        .map(|(id, data)| {
+            let str = std::str::from_utf8(data).unwrap();
+            let cmd = ron::from_str(str).unwrap();
+            (id, cmd)
+        })
+        .collect()
+});
+
+static VX_COMMANDS: Lazy<luminol_data::CommandSet> = Lazy::new(|| todo!());
+
+static ACE_COMMANDS: Lazy<luminol_data::CommandSet> = Lazy::new(|| todo!());
+
 impl Config {
     pub fn from_project(project: Project) -> Self {
         let mut game_ini = ini::Ini::new();
@@ -77,7 +92,12 @@ impl Config {
             .set("RTP2", "")
             .set("RTP3", "");
 
-        let command_db = command_db::CommandDB::new(project.editor_ver);
+        let default = match project.editor_ver {
+            RMVer::XP => &*XP_COMMANDS,
+            RMVer::VX => &*VX_COMMANDS,
+            RMVer::Ace => &*ACE_COMMANDS,
+        };
+        let command_db = luminol_data::CommandDB::from_defaults(default.clone());
 
         Self {
             project,

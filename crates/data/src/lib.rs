@@ -12,8 +12,10 @@ mod rgss_structs;
 
 pub mod helpers;
 
+mod command_db;
 pub mod commands;
 
+pub use command_db::{CommandDB, CommandSet};
 pub use helpers::*;
 pub use option_vec::OptionVec;
 pub use rgss_structs::{Color, Table1, Table2, Table3, Tone};

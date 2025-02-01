@@ -39,3 +39,7 @@ pub struct Map {
     #[serde(skip)]
     pub modified: bool,
 }
+
+pub struct MapDeserializer<'de> {
+    command_db: &'de crate::CommandDB,
+}

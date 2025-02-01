@@ -22,29 +22,10 @@
 // terms of the Steamworks API by Valve Corporation, the licensors of this
 // Program grant you additional permission to convey the resulting work.
 
-use luminol_data::commands::Command;
-use once_cell::sync::Lazy;
-use std::collections::HashMap;
-
+use crate::commands::Command;
 use serde::{Deserialize, Serialize};
 
-use super::RMVer;
-
-type CommandSet = HashMap<u16, Command>;
-static XP_DEFAULT: Lazy<CommandSet> = Lazy::new(|| {
-    let dir = luminol_macros::include_asset_dir_ids!("assets/commands/XP");
-    dir.into_iter()
-        .map(|(id, data)| {
-            let str = std::str::from_utf8(data).unwrap();
-            let cmd = ron::from_str(str).unwrap();
-            (id, cmd)
-        })
-        .collect()
-});
-
-static VX_DEFAULT: Lazy<CommandSet> = Lazy::new(|| todo!());
-
-static ACE_DEFAULT: Lazy<CommandSet> = Lazy::new(|| todo!());
+pub type CommandSet = std::collections::HashMap<u16, Command>;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct CommandDB {
@@ -56,15 +37,10 @@ pub struct CommandDB {
 }
 
 impl CommandDB {
-    pub fn new(ver: RMVer) -> Self {
+    pub fn from_defaults(default: CommandSet) -> Self {
         Self {
-            default: match ver {
-                RMVer::XP => &*XP_DEFAULT,
-                RMVer::VX => &*VX_DEFAULT,
-                RMVer::Ace => &*ACE_DEFAULT,
-            }
-            .clone(),
-            user: HashMap::new(),
+            default,
+            user: CommandSet::new(),
         }
     }
 

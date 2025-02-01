@@ -15,7 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Luminol.  If not, see <http://www.gnu.org/licenses/>.
 
-pub mod command_db;
 pub mod global;
 pub mod project;
 #[cfg(not(target_arch = "wasm32"))]
