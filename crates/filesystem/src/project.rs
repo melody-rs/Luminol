@@ -184,7 +184,8 @@ impl FileSystem {
         {
             Some(c) => c,
             None => {
-                let command_db = luminol_config::command_db::CommandDB::new(project.editor_ver);
+                let command_db =
+                    luminol_config::project::Config::command_db_for(project.editor_ver);
                 self.write(
                     ".luminol/commands.json",
                     serde_json::to_string_pretty(&command_db).wrap_err(c)?,

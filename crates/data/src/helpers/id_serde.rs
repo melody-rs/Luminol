@@ -15,6 +15,28 @@
 // You should have received a copy of the GNU General Public License
 // along with Luminol.  If not, see <http://www.gnu.org/licenses/>.
 
+pub struct DeserializeId(pub usize);
+
+impl<'de> serde::Deserialize<'de> for DeserializeId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserialize(deserializer).map(Self)
+    }
+}
+
+pub struct SerializeId(pub usize);
+
+impl serde::Serialize for SerializeId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serialize(&self.0, serializer)
+    }
+}
+
 pub fn deserialize<'de, D>(deserializer: D) -> Result<usize, D::Error>
 where
     D: serde::Deserializer<'de>,

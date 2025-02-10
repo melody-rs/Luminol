@@ -15,6 +15,30 @@
 // You should have received a copy of the GNU General Public License
 // along with Luminol.  If not, see <http://www.gnu.org/licenses/>.
 
+// TODO make Id a concrete type instead of usize
+
+pub struct DeserializeId(pub usize);
+
+impl<'de> alox_48::de::Deserialize<'de> for DeserializeId {
+    fn deserialize<D>(deserializer: D) -> alox_48::DeResult<Self>
+    where
+        D: alox_48::DeserializerTrait<'de>,
+    {
+        deserialize_with(deserializer).map(Self)
+    }
+}
+
+pub struct SerializeId(pub usize);
+
+impl alox_48::ser::Serialize for SerializeId {
+    fn serialize<S>(&self, serializer: S) -> alox_48::SerResult<S::Ok>
+    where
+        S: alox_48::SerializerTrait,
+    {
+        serialize_with(&self.0, serializer)
+    }
+}
+
 pub fn deserialize_with<'de, D>(deserializer: D) -> Result<usize, alox_48::DeError>
 where
     D: alox_48::DeserializerTrait<'de>,

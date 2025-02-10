@@ -51,24 +51,7 @@ impl Handler {
         T: for<'de> alox_48::Deserialize<'de>,
         T: ::serde::de::DeserializeOwned,
     {
-        let data = filesystem.read(self.path_for(filename))?;
-
-        match self.format {
-            DataFormat::Marshal => {
-                let mut de = alox_48::Deserializer::new(&data)?;
-                let result = alox_48::path_to_error::deserialize(&mut de);
-
-                result.map_err(|(error, trace)| format_traced_error(error, trace))
-            }
-            DataFormat::Ron { .. } => {
-                let mut de = ron::de::Deserializer::from_bytes(&data)?;
-                serde_path_to_error::deserialize(&mut de).map_err(format_path_to_error)
-            }
-            DataFormat::Json { .. } => {
-                let mut de = serde_json::de::Deserializer::from_slice(&data);
-                serde_path_to_error::deserialize(&mut de).map_err(format_path_to_error)
-            }
-        }
+        self.read_data_seed(std::marker::PhantomData::<T>, filesystem, filename)
     }
 
     pub fn read_data_from<T>(self, data: &[u8]) -> color_eyre::Result<T>
@@ -76,20 +59,54 @@ impl Handler {
         T: for<'de> alox_48::Deserialize<'de>,
         T: ::serde::de::DeserializeOwned,
     {
+        self.read_data_from_seed(std::marker::PhantomData, data)
+    }
+
+    pub fn read_data_seed<D, T>(
+        self,
+        seed: D,
+        filesystem: &impl luminol_filesystem::FileSystem,
+        filename: impl AsRef<camino::Utf8Path>,
+    ) -> color_eyre::Result<T>
+    where
+        D: for<'de> alox_48::de::DeserializeSeed<'de, Value = T>,
+        D: for<'de> serde::de::DeserializeSeed<'de, Value = T>,
+    {
+        let data = filesystem.read(self.path_for(filename))?;
+        self.read_data_from_seed(seed, &data)
+    }
+
+    // The base of all the read_data functions.
+    // They all direct to this.
+    pub fn read_data_from_seed<D, T>(self, seed: D, data: &[u8]) -> color_eyre::Result<T>
+    where
+        D: for<'de> alox_48::de::DeserializeSeed<'de, Value = T>,
+        D: for<'de> serde::de::DeserializeSeed<'de, Value = T>,
+    {
+        // This is truly the code of all time
         match self.format {
             DataFormat::Marshal => {
+                let mut trace = alox_48::path_to_error::Trace::new();
                 let mut de = alox_48::Deserializer::new(data)?;
-                let result = alox_48::path_to_error::deserialize(&mut de);
-
-                result.map_err(|(error, trace)| format_traced_error(error, trace))
+                let de = alox_48::path_to_error::Deserializer::new(&mut de, &mut trace);
+                <D as alox_48::de::DeserializeSeed>::deserialize(seed, de)
+                    .map_err(|error| format_traced_error(error, trace))
             }
             DataFormat::Ron { .. } => {
+                let mut track = serde_path_to_error::Track::new();
                 let mut de = ron::de::Deserializer::from_bytes(data)?;
-                serde_path_to_error::deserialize(&mut de).map_err(format_path_to_error)
+                let de = serde_path_to_error::Deserializer::new(&mut de, &mut track);
+                <D as serde::de::DeserializeSeed>::deserialize(seed, de).map_err(|error| {
+                    format_path_to_error(serde_path_to_error::Error::new(track.path(), error))
+                })
             }
             DataFormat::Json { .. } => {
+                let mut track = serde_path_to_error::Track::new();
                 let mut de = serde_json::de::Deserializer::from_slice(data);
-                serde_path_to_error::deserialize(&mut de).map_err(format_path_to_error)
+                let de = serde_path_to_error::Deserializer::new(&mut de, &mut track);
+                <D as serde::de::DeserializeSeed>::deserialize(seed, de).map_err(|error| {
+                    format_path_to_error(serde_path_to_error::Error::new(track.path(), error))
+                })
             }
         }
     }

@@ -92,17 +92,21 @@ impl Config {
             .set("RTP2", "")
             .set("RTP3", "");
 
-        let default = match project.editor_ver {
-            RMVer::XP => &*XP_COMMANDS,
-            RMVer::VX => &*VX_COMMANDS,
-            RMVer::Ace => &*ACE_COMMANDS,
-        };
-        let command_db = luminol_data::CommandDB::from_defaults(default.clone());
+        let command_db = Self::command_db_for(project.editor_ver);
 
         Self {
             project,
             command_db,
             game_ini,
         }
+    }
+
+    pub fn command_db_for(editor_ver: RMVer) -> luminol_data::CommandDB {
+        let default = match editor_ver {
+            RMVer::XP => &*XP_COMMANDS,
+            RMVer::VX => &*VX_COMMANDS,
+            RMVer::Ace => &*ACE_COMMANDS,
+        };
+        luminol_data::CommandDB::from_defaults(default.clone())
     }
 }

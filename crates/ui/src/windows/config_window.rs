@@ -51,6 +51,7 @@ impl Window {
 
 type Converting = std::sync::Arc<(AtomicUsize, AtomicUsize)>;
 
+// TODO convert this to an enum (this is written like C)
 const CONVERTING_ACTORS: usize = 0;
 const CONVERTING_ANIMATIONS: usize = 1;
 const CONVERTING_ARMORS: usize = 2;
@@ -186,6 +187,7 @@ fn convert_project(
 
     let host = filesystem.host().unwrap(); // This bypasses the path cache (which is BAD!) so we will need to regen it later
     let scripts_filename = config.project.scripts_path.clone();
+    let command_db = config.command_db.clone(); // TODO remove this clone (somehow)
 
     async move {
         let mut read_buf = Vec::new();
@@ -247,12 +249,42 @@ fn convert_project(
         let mapinfos: std::collections::HashMap<usize, rpg::MapInfo> =
             convert_regular(from, to, read_buf, write_buf, "MapInfos", host).await?;
 
+        // we should probably do this in parallel rather than sequentially (maybe not on web though?)
         for (index, map_id) in mapinfos.keys().copied().enumerate() {
             converting_progress.store(CONVERTING_MAPINFOS + index, Ordering::Relaxed);
             converting_map_id.store(map_id, Ordering::Relaxed);
 
             let map_filename = format!("Map{map_id:0>3}");
-            convert_regular::<rpg::Map>(from, to, read_buf, write_buf, &map_filename, host).await?;
+            // it's better to just. do this ourselves rather than writing a complex function for it
+            // we only need to handle this for maps anyway
+            read_buf.clear();
+            write_buf.clear();
+
+            let mut file = host.open_file(from.path_for(&map_filename), OpenFlags::Read)?;
+            file.read_to_end(read_buf).await?;
+
+            // we deserialize then reserialize in a block so we don't use a Map across an await.
+            // Map isn't actually Send+Sync so this is required to keep the future Send+Sync
+            {
+                let seed = luminol_data::rpg::map::MapDeserializer {
+                    command_db: &command_db,
+                };
+                let map = from.read_data_from_seed(seed, read_buf)?;
+                let serializer = luminol_data::rpg::map::MapSerializer {
+                    map: &map,
+                    command_db: &command_db,
+                };
+                to.write_data_to(&serializer, write_buf)?;
+            }
+
+            let mut file = host.open_file(
+                to.path_for(&map_filename),
+                OpenFlags::Write | OpenFlags::Truncate | OpenFlags::Create,
+            )?;
+            file.write_all(write_buf).await?;
+            file.flush().await?;
+
+            from.remove_file(host, &map_filename)?;
         }
         Ok(())
     }
