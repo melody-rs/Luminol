@@ -296,10 +296,7 @@ impl Data {
             maps.iter().try_for_each(|(id, map)| {
                 if map.modified {
                     modified = true;
-                    let serializer = luminol_data::rpg::map::MapSerializer {
-                        command_db: &config.command_db,
-                        map,
-                    };
+                    let serializer = rpg::MapSerializer::new(&config.command_db, map);
                     handler
                         .write_data(&serializer, filesystem, format!("Map{id:0>3}"))
                         .wrap_err_with(|| format!("While saving map {id:0>3}"))
@@ -418,12 +415,10 @@ impl Data {
             // FIXME
             maps.entry(id).or_insert_with(|| {
                 let handler = data_formats::Handler::new(config.project.data_format);
-                let seed = luminol_data::rpg::map::MapDeserializer {
-                    command_db: &config.command_db,
-                };
-                handler
-                    .read_data_seed(seed, filesystem, format!("Map{id:0>3}"))
-                    .expect("failed to load map")
+                let raw_map: rpg::RawMap = handler
+                    .read_data(filesystem, format!("Map{id:0>3}"))
+                    .expect("failed to load map");
+                raw_map.parse_commands(&config.command_db)
             })
         })
     }

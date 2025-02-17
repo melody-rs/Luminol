@@ -286,9 +286,6 @@ impl luminol_core::Window for Window {
 
                 egui::CentralPanel::default().show_inside(ui, |ui| {
                     ui.label("Commands");
-
-                    let mut view = crate::components::CommandView::new();
-                    view.ui(ui, &mut page.list);
                 });
             });
 

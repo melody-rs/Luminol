@@ -37,6 +37,12 @@ pub struct Iter<'a, T> {
 }
 
 #[derive(Debug)]
+pub struct IntoIter<T> {
+    size: usize,
+    vec_iter: std::iter::Enumerate<std::vec::IntoIter<Option<T>>>,
+}
+
+#[derive(Debug)]
 pub struct IterMut<'a, T> {
     size: usize,
     vec_iter: std::iter::Enumerate<std::slice::IterMut<'a, Option<T>>>,
@@ -199,6 +205,17 @@ impl<T> IndexMut<usize> for OptionVec<T> {
     }
 }
 
+impl<T> IntoIterator for OptionVec<T> {
+    type Item = (usize, T);
+    type IntoIter = IntoIter<T>;
+    fn into_iter(self) -> Self::IntoIter {
+        Self::IntoIter {
+            size: self.size(),
+            vec_iter: self.vec.into_iter().enumerate(),
+        }
+    }
+}
+
 impl<'a, T> IntoIterator for &'a OptionVec<T> {
     type Item = (usize, &'a T);
     type IntoIter = Iter<'a, T>;
@@ -253,6 +270,39 @@ impl<T> ExactSizeIterator for Iter<'_, T> {
 }
 
 impl<T> FusedIterator for Iter<'_, T> {}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = (usize, T);
+    fn next(&mut self) -> Option<Self::Item> {
+        for (index, element) in &mut self.vec_iter {
+            if let Some(element) = element {
+                self.size -= 1;
+                return Some((index, element));
+            }
+        }
+        None
+    }
+}
+
+impl<T> DoubleEndedIterator for IntoIter<T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        while let Some((index, element)) = self.vec_iter.next_back() {
+            if let Some(element) = element {
+                self.size -= 1;
+                return Some((index, element));
+            }
+        }
+        None
+    }
+}
+
+impl<T> ExactSizeIterator for IntoIter<T> {
+    fn len(&self) -> usize {
+        self.size
+    }
+}
+
+impl<T> FusedIterator for IntoIter<T> {}
 
 impl<'a, T> Iterator for IterMut<'a, T> {
     type Item = (usize, &'a mut T);

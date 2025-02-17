@@ -187,7 +187,6 @@ fn convert_project(
 
     let host = filesystem.host().unwrap(); // This bypasses the path cache (which is BAD!) so we will need to regen it later
     let scripts_filename = config.project.scripts_path.clone();
-    let command_db = config.command_db.clone(); // TODO remove this clone (somehow)
 
     async move {
         let mut read_buf = Vec::new();
@@ -255,36 +254,8 @@ fn convert_project(
             converting_map_id.store(map_id, Ordering::Relaxed);
 
             let map_filename = format!("Map{map_id:0>3}");
-            // it's better to just. do this ourselves rather than writing a complex function for it
-            // we only need to handle this for maps anyway
-            read_buf.clear();
-            write_buf.clear();
-
-            let mut file = host.open_file(from.path_for(&map_filename), OpenFlags::Read)?;
-            file.read_to_end(read_buf).await?;
-
-            // we deserialize then reserialize in a block so we don't use a Map across an await.
-            // Map isn't actually Send+Sync so this is required to keep the future Send+Sync
-            {
-                let seed = luminol_data::rpg::map::MapDeserializer {
-                    command_db: &command_db,
-                };
-                let map = from.read_data_from_seed(seed, read_buf)?;
-                let serializer = luminol_data::rpg::map::MapSerializer {
-                    map: &map,
-                    command_db: &command_db,
-                };
-                to.write_data_to(&serializer, write_buf)?;
-            }
-
-            let mut file = host.open_file(
-                to.path_for(&map_filename),
-                OpenFlags::Write | OpenFlags::Truncate | OpenFlags::Create,
-            )?;
-            file.write_all(write_buf).await?;
-            file.flush().await?;
-
-            from.remove_file(host, &map_filename)?;
+            convert_regular::<rpg::RawMap>(from, to, read_buf, write_buf, &map_filename, host)
+                .await?;
         }
         Ok(())
     }

@@ -35,7 +35,7 @@ pub use armor::Armor;
 pub use class::Class;
 pub use enemy::Enemy;
 pub use item::Item;
-pub use map::Map;
+pub use map::*;
 pub use skill::Skill;
 pub use state::State;
 pub use system::System;
