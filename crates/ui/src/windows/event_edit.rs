@@ -286,6 +286,15 @@ impl luminol_core::Window for Window {
 
                 egui::CentralPanel::default().show_inside(ui, |ui| {
                     ui.label("Commands");
+
+                    let project_config = update_state.project_config.as_ref().unwrap();
+                    let mut view = crate::components::CommandView::new();
+                    view.ui(
+                        ui,
+                        &project_config.command_db,
+                        &mut page.commands,
+                        page.root,
+                    );
                 });
             });
 

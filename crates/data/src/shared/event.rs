@@ -133,7 +133,7 @@ impl RawEventPage {
         }
 
         let desc = command_db.get(command.code);
-        let mut child = parent.append_value(command, commands);
+        let current = parent.append_value(command, commands);
         if let Some(desc) = desc {
             match &desc.kind {
                 CommandKind::Branch {
@@ -141,22 +141,30 @@ impl RawEventPage {
                     branches,
                     terminator,
                     command_contains_branch,
-                } => loop {
-                    let next = iter.next().unwrap();
-
-                    if next.code == terminator.code {
-                        break;
+                } => {
+                    let mut branch = None;
+                    if *command_contains_branch {
+                        branch = Some(current.append_value(EventPage::ROOT_NODE, commands))
                     }
+                    loop {
+                        let next = iter.next().unwrap();
 
-                    if branches.iter().any(|branch| branch.code == next.code) {
-                        child = parent.append_value(next, commands);
-                        continue;
+                        if next.code == terminator.code {
+                            break;
+                        }
+
+                        if branches.iter().any(|branch| branch.code == next.code) {
+                            branch = Some(current.append_value(next, commands));
+                            continue;
+                        }
+
+                        if let Some(branch) = branch {
+                            Self::parse_command_under(branch, next, commands, iter, command_db);
+                        }
                     }
-
-                    Self::parse_command_under(child, next, commands, iter, command_db);
-                },
+                }
                 CommandKind::Multi(cont) => {
-                    let command = commands[child].get_mut();
+                    let command = commands[current].get_mut();
                     let text = command.parameters[0].as_string_mut().unwrap();
                     while let Some(next) = iter.next_if(|next| next.code == *cont) {
                         let next_line = next.parameters[0].as_string().unwrap();
