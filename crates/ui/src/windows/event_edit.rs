@@ -69,7 +69,7 @@ impl Window {
             switch_2_modal: SwitchModal::new(id_source.with("switch_2_modal")),
             variable_modal: VariableModal::new(id_source.with("variable_modal")),
             graphic_modal,
-            command_view: CommandView::new(),
+            command_view: CommandView::new(id_source.with("command_view")),
         }
     }
 }

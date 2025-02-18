@@ -52,12 +52,18 @@ impl CommandDB {
         self.user.get_mut(&id).or_else(|| self.default.get_mut(&id))
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&u16, &Command)> {
-        self.default.iter().chain(self.user.iter())
+    pub fn iter(&self) -> impl Iterator<Item = (u16, &Command)> {
+        self.default
+            .iter()
+            .chain(self.user.iter())
+            .map(|(id, command)| (*id, command))
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&u16, &mut Command)> {
-        self.default.iter_mut().chain(self.user.iter_mut())
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (u16, &mut Command)> {
+        self.default
+            .iter_mut()
+            .chain(self.user.iter_mut())
+            .map(|(id, command)| (*id, command))
     }
 
     pub fn len(&self) -> usize {

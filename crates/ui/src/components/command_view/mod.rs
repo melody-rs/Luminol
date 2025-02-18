@@ -22,54 +22,73 @@
 // terms of the Steamworks API by Valve Corporation, the licensors of this
 // Program grant you additional permission to convey the resulting work.
 
-use luminol_core::UpdateState;
-use luminol_data::{commands::CommandKind, rpg};
+use indextree::{Arena, NodeId};
+use luminol_data::commands::{Command as CommandDesc, CommandKind};
+use luminol_data::{rpg, CommandDB};
 
-#[derive(Default)]
-pub enum CommandView {
-    #[default]
+pub struct CommandView {
+    id_source: egui::Id,
+    state: State,
+}
+
+enum State {
     Viewing,
+    Insert { under: NodeId },
+    Editing { which: NodeId },
 }
 
 impl CommandView {
-    pub fn new() -> Self {
-        CommandView::default()
+    pub fn new(id_source: egui::Id) -> Self {
+        Self {
+            id_source,
+            state: State::Viewing,
+        }
     }
 
     pub fn reset(&mut self) {
-        *self = CommandView::Viewing;
+        self.state = State::Viewing;
     }
 
-    fn display_insert(&mut self, ui: &mut egui::Ui) {
-        ui.label(">");
+    fn display_insert(&mut self, ui: &mut egui::Ui, under: NodeId) {
+        if ui.button(">").clicked() {
+            self.state = State::Insert { under }
+        }
+    }
+
+    fn collapsing_state_for(
+        &mut self,
+        ctx: &egui::Context,
+        node_id: NodeId,
+    ) -> egui::collapsing_header::CollapsingState {
+        let id = egui::Id::new("cmd_edit_branch")
+            .with(self.id_source)
+            .with(node_id);
+        egui::collapsing_header::CollapsingState::load_with_default_open(ctx, id, true)
     }
 
     fn ui_for_command(
         &mut self,
         ui: &mut egui::Ui,
-        command_db: &luminol_data::CommandDB,
-        commands: &indextree::Arena<rpg::EventCommand>,
-        node_id: indextree::NodeId,
+        command_db: &CommandDB,
+        commands: &Arena<rpg::EventCommand>,
+        this_id: NodeId,
     ) {
-        let command = commands[node_id].get();
+        let command = commands[this_id].get();
         match command_db.get(command.code) {
             Some(desc) => match &desc.kind {
                 CommandKind::Branch {
-                    parameters,
                     branches,
                     terminator,
                     command_contains_branch,
+                    ..
                 } => {
-                    let id = egui::Id::new("event_edit_branch").with(node_id);
-                    let header = egui::collapsing_header::CollapsingState::load_with_default_open(
-                        ui.ctx(),
-                        id,
-                        true,
-                    );
-                    let mut children = node_id.children(commands);
-                    header
+                    let mut children = this_id.children(commands);
+                    self.collapsing_state_for(ui.ctx(), this_id)
                         .show_header(ui, |ui| {
-                            ui.label(egui::RichText::new(&desc.name).color(desc.color));
+                            let resp = ui.button(egui::RichText::new(&desc.name).color(desc.color));
+                            if resp.clicked() {
+                                self.state = State::Editing { which: this_id }
+                            }
                         })
                         .body(|ui| {
                             if *command_contains_branch {
@@ -77,7 +96,7 @@ impl CommandView {
                                 for child in branch.children(commands) {
                                     self.ui_for_command(ui, command_db, commands, child);
                                 }
-                                self.display_insert(ui);
+                                self.display_insert(ui, this_id);
                             }
                         });
                     for branch in children {
@@ -85,14 +104,7 @@ impl CommandView {
                         let Some(branch_desc) = branches.iter().find(|b| b.code == code) else {
                             continue;
                         };
-                        let id = egui::Id::new("event_edit_branch").with(branch);
-                        let header =
-                            egui::collapsing_header::CollapsingState::load_with_default_open(
-                                ui.ctx(),
-                                id,
-                                true,
-                            );
-                        header
+                        self.collapsing_state_for(ui.ctx(), branch)
                             .show_header(ui, |ui| {
                                 ui.label(egui::RichText::new(&branch_desc.name).color(desc.color));
                             })
@@ -100,7 +112,7 @@ impl CommandView {
                                 for child in branch.children(commands) {
                                     self.ui_for_command(ui, command_db, commands, child);
                                 }
-                                self.display_insert(ui);
+                                self.display_insert(ui, this_id);
                             });
                     }
                     ui.indent("??", |ui| {
@@ -112,10 +124,24 @@ impl CommandView {
                     let text = command.parameters[0].as_string().unwrap();
                     ui.indent("??", |ui| ui.label(text));
                 }
-                CommandKind::Regular { parameters } => {
-                    ui.label(egui::RichText::new(&desc.name).color(desc.color));
+                CommandKind::Regular { .. } => {
+                    let resp = ui.button(egui::RichText::new(&desc.name).color(desc.color));
+                    if resp.clicked() {
+                        self.state = State::Editing { which: this_id }
+                    }
                 }
-                CommandKind::MoveRoute(_) => todo!(),
+                CommandKind::MoveRoute(_) => {
+                    ui.label(egui::RichText::new(&desc.name).color(desc.color));
+                    let route = command.parameters[0].as_moveroute().unwrap();
+                    ui.indent("??", |ui| {
+                        for command in route.list.iter() {
+                            // TODO
+                            let text =
+                                egui::RichText::new(format!("{command:?}")).color(desc.color);
+                            ui.label(text);
+                        }
+                    });
+                }
                 CommandKind::Blank => {
                     ui.label(egui::RichText::new(&desc.name).color(desc.color));
                 }
@@ -128,22 +154,64 @@ impl CommandView {
         }
     }
 
+    fn default_for_command(command: &CommandDesc) -> rpg::EventCommand {
+        todo!()
+    }
+
     // maybe take a Ctx parameter instead? we have to keep passing all these parameters around which gets annoying fast
     pub fn ui(
         &mut self,
         ui: &mut egui::Ui,
-        update_state: &mut UpdateState<'_>,
-        commands: &mut indextree::Arena<rpg::EventCommand>,
-        root_node: indextree::NodeId,
+        update_state: &mut luminol_core::UpdateState<'_>,
+        commands: &mut Arena<rpg::EventCommand>,
+        root_node: NodeId,
     ) {
         let project_config = update_state.project_config.as_ref().unwrap();
+        let command_db = &project_config.command_db;
         egui::ScrollArea::both()
             .auto_shrink([false, true])
             .show(ui, |ui| {
                 for child in root_node.children(commands) {
-                    self.ui_for_command(ui, &project_config.command_db, commands, child);
+                    self.ui_for_command(ui, command_db, commands, child);
                 }
-                self.display_insert(ui);
+                self.display_insert(ui, root_node);
             });
+        match self.state {
+            State::Viewing => {}
+            State::Insert { under } => {
+                let mut is_open = true;
+                let id = egui::Id::new("cmd_edit_insert")
+                    .with(self.id_source)
+                    .with(under);
+                egui::Window::new("Insert Command")
+                    .id(id)
+                    .open(&mut is_open)
+                    .show(ui.ctx(), |ui| {
+                        for (id, command) in command_db.iter() {
+                            if ui.button(&command.name).clicked() {
+                                let default = Self::default_for_command(command);
+                                let node_id = under.append_value(default, commands);
+                                self.state = State::Editing { which: node_id }
+                            }
+                        }
+                    });
+                if !is_open {
+                    self.state = State::Viewing;
+                }
+            }
+            State::Editing { which } => {
+                let mut is_open = true;
+                let id = egui::Id::new("cmd_edit_edit")
+                    .with(self.id_source)
+                    .with(which);
+                egui::Window::new("Edit Command")
+                    .id(id)
+                    .open(&mut is_open)
+                    .show(ui.ctx(), |ui| {});
+                if !is_open {
+                    self.state = State::Viewing;
+                }
+            }
+        }
     }
 }
