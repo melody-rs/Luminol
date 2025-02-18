@@ -22,7 +22,7 @@
 // terms of the Steamworks API by Valve Corporation, the licensors of this
 // Program grant you additional permission to convey the resulting work.
 
-use crate::components::{EnumComboBox, EnumMenuButton, EnumRadioList};
+use crate::components::{CommandView, EnumComboBox, EnumMenuButton, EnumRadioList};
 use crate::modals::{
     database_modal::{SwitchModal, VariableModal},
     graphic_picker::event::Modal as GraphicPicker,
@@ -40,6 +40,7 @@ pub struct Window {
     switch_2_modal: SwitchModal,
     variable_modal: VariableModal,
     graphic_modal: GraphicPicker,
+    command_view: CommandView,
 }
 
 impl Window {
@@ -68,6 +69,7 @@ impl Window {
             switch_2_modal: SwitchModal::new(id_source.with("switch_2_modal")),
             variable_modal: VariableModal::new(id_source.with("variable_modal")),
             graphic_modal,
+            command_view: CommandView::new(),
         }
     }
 }
@@ -145,6 +147,7 @@ impl luminol_core::Window for Window {
                 if self.selected_page != previous_page {
                     // reset the modal if we've changed pages
                     self.graphic_modal.reset(update_state, &mut page.graphic);
+                    self.command_view.reset();
                 }
 
                 egui::SidePanel::left(id_source.with("side_panel")).show_inside(ui, |ui| {
@@ -287,14 +290,8 @@ impl luminol_core::Window for Window {
                 egui::CentralPanel::default().show_inside(ui, |ui| {
                     ui.label("Commands");
 
-                    let project_config = update_state.project_config.as_ref().unwrap();
-                    let mut view = crate::components::CommandView::new();
-                    view.ui(
-                        ui,
-                        &project_config.command_db,
-                        &mut page.commands,
-                        page.root,
-                    );
+                    self.command_view
+                        .ui(ui, update_state, &mut page.commands, page.root);
                 });
             });
 

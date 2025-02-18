@@ -135,12 +135,13 @@ impl RawEventPage {
         let desc = command_db.get(command.code);
         let current = parent.append_value(command, commands);
         if let Some(desc) = desc {
+            // TODO validate parameters?
             match &desc.kind {
                 CommandKind::Branch {
-                    parameters,
                     branches,
                     terminator,
                     command_contains_branch,
+                    ..
                 } => {
                     let mut branch = None;
                     if *command_contains_branch {
@@ -171,9 +172,12 @@ impl RawEventPage {
                         write!(text, "\n{next_line}").unwrap();
                     }
                 }
-                CommandKind::Regular { parameters } => todo!(),
-                CommandKind::MoveRoute(_) => todo!(),
-                CommandKind::Blank => todo!(),
+                CommandKind::MoveRoute(display_id) => {
+                    // consume all editor display id move routes
+                    while iter.next_if(|next| next.code == *display_id).is_some() {}
+                }
+                // we've already inserted the command- nothing else to do.
+                CommandKind::Regular { .. } | CommandKind::Blank => {}
             }
         }
     }

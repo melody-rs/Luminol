@@ -4,32 +4,25 @@ Command(
     parameters: [
       Parameter(
         index: 0,
-        name: "Condition",
         // selector is a map of the possible values to parameters
         kind: Selector([
           [
             Parameter(
               index: 1,
-              name: "Switch ID",
               kind: Switch,
             ),
-            Label("is"),
             Parameter(
               index: 2,
-              name: "State",
               kind: IntBool,
             )
           ],
           [
             Parameter(
               index: 1,
-              name: "Variable ID",
               kind: Variable,
             ),
-            Label("is"),
             Parameter(
               index: 4,
-              name: "Operator",
               kind: Enum([
                 "Equal to",
                 "Greater than or Equals to",
@@ -41,19 +34,16 @@ Command(
             ),
             Parameter(
               index: 2,
-              name: "Value",
               kind: Selector([
                 [
                   Parameter(
                     index: 3,
-                    name: "Constant",
                     kind: Int,
                   )
                 ],
                 [
                   Parameter(
                     index: 3,
-                    name: "Variable ID",
                     kind: Variable,
                   )
                 ]
@@ -63,13 +53,10 @@ Command(
           [
             Parameter(
               index: 1,
-              name: "Self Switch",
               kind: SelfSwitch,
             ),
-            Label("is"),
             Parameter(
               index: 2,
-              name: "State",
               kind: IntBool,
             )
           ],

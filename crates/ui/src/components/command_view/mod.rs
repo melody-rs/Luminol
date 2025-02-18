@@ -22,19 +22,22 @@
 // terms of the Steamworks API by Valve Corporation, the licensors of this
 // Program grant you additional permission to convey the resulting work.
 
+use luminol_core::UpdateState;
 use luminol_data::{commands::CommandKind, rpg};
 
-pub struct CommandView {}
-
-impl Default for CommandView {
-    fn default() -> Self {
-        CommandView::new()
-    }
+#[derive(Default)]
+pub enum CommandView {
+    #[default]
+    Viewing,
 }
 
 impl CommandView {
     pub fn new() -> Self {
-        CommandView {}
+        CommandView::default()
+    }
+
+    pub fn reset(&mut self) {
+        *self = CommandView::Viewing;
     }
 
     fn display_insert(&mut self, ui: &mut egui::Ui) {
@@ -79,7 +82,9 @@ impl CommandView {
                         });
                     for branch in children {
                         let code = commands[branch].get().code;
-                        let branch_desc = branches.iter().find(|b| b.code == code).unwrap();
+                        let Some(branch_desc) = branches.iter().find(|b| b.code == code) else {
+                            continue;
+                        };
                         let id = egui::Id::new("event_edit_branch").with(branch);
                         let header =
                             egui::collapsing_header::CollapsingState::load_with_default_open(
@@ -98,15 +103,22 @@ impl CommandView {
                                 self.display_insert(ui);
                             });
                     }
+                    ui.indent("??", |ui| {
+                        ui.label(egui::RichText::new(&terminator.name).color(desc.color));
+                    });
                 }
                 CommandKind::Multi(_) => {
                     ui.label(egui::RichText::new(&desc.name).color(desc.color));
                     let text = command.parameters[0].as_string().unwrap();
-                    ui.label(text);
+                    ui.indent("??", |ui| ui.label(text));
                 }
-                CommandKind::Regular { parameters } => todo!(),
+                CommandKind::Regular { parameters } => {
+                    ui.label(egui::RichText::new(&desc.name).color(desc.color));
+                }
                 CommandKind::MoveRoute(_) => todo!(),
-                CommandKind::Blank => todo!(),
+                CommandKind::Blank => {
+                    ui.label(egui::RichText::new(&desc.name).color(desc.color));
+                }
             },
             None => {
                 let text = egui::RichText::new(format!("🔥 Unrecognized command {}", command.code))
@@ -116,19 +128,20 @@ impl CommandView {
         }
     }
 
-    // maybe take a Ctx parameter instead?
+    // maybe take a Ctx parameter instead? we have to keep passing all these parameters around which gets annoying fast
     pub fn ui(
         &mut self,
         ui: &mut egui::Ui,
-        command_db: &luminol_data::CommandDB,
+        update_state: &mut UpdateState<'_>,
         commands: &mut indextree::Arena<rpg::EventCommand>,
         root_node: indextree::NodeId,
     ) {
+        let project_config = update_state.project_config.as_ref().unwrap();
         egui::ScrollArea::both()
             .auto_shrink([false, true])
             .show(ui, |ui| {
                 for child in root_node.children(commands) {
-                    self.ui_for_command(ui, command_db, commands, child);
+                    self.ui_for_command(ui, &project_config.command_db, commands, child);
                 }
                 self.display_insert(ui);
             });

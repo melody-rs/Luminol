@@ -67,13 +67,7 @@ pub struct Terminator {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Parameter {
-    Parameter {
-        index: usize,
-        name: String,
-        kind: ParameterKind,
-    },
-    /// Used for display purposes only.
-    Label(String),
+    Parameter { index: usize, kind: ParameterKind },
 }
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum ParameterKind {
@@ -85,7 +79,7 @@ pub enum ParameterKind {
     /// Selects between  a list of parameters.
     /// This is used for commands like "Conditional Branch"
     /// where multiple conditon types are available.
-    Selector(Vec<Vec<Parameter>>),
+    Selector(Vec<Parameters>),
     SelfSwitch,
     IntBool,
     Bool,
