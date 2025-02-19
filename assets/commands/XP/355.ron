@@ -1,0 +1,8 @@
+Command(
+    name: "Script",
+    kind: Multi(
+        cont: 655,
+        is_ruby: true,
+    ),
+    color: Color32((237, 237, 237, 255))
+)

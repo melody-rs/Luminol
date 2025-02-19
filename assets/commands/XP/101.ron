@@ -2,6 +2,9 @@ Command(
     name: "Show Text",
     // Multi commands implies that the command is just text
     // 401 is the continuation id
-    kind: Multi(401),
+    kind: Multi(
+        cont: 401,
+        is_ruby: false,
+    ),
     color: Color32((237, 237, 237, 255))
 )

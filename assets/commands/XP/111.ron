@@ -2,69 +2,7 @@ Command(
   name: "Conditional Branch",
   kind: Branch(
     parameters: [
-      Parameter(
-        index: 0,
-        // selector is a map of the possible values to parameters
-        kind: Selector([
-          [
-            Parameter(
-              index: 1,
-              kind: Switch,
-            ),
-            Parameter(
-              index: 2,
-              kind: IntBool,
-            )
-          ],
-          [
-            Parameter(
-              index: 1,
-              kind: Variable,
-            ),
-            Parameter(
-              index: 4,
-              kind: Enum([
-                "Equal to",
-                "Greater than or Equals to",
-                "Less than or Equals to",
-                "Greater than",
-                "Less Than",
-                "Not Equal"
-              ]),
-            ),
-            Parameter(
-              index: 2,
-              kind: Selector([
-                [
-                  Parameter(
-                    index: 3,
-                    kind: Int,
-                  )
-                ],
-                [
-                  Parameter(
-                    index: 3,
-                    kind: Variable,
-                  )
-                ]
-              ])
-            )
-          ],
-          [
-            Parameter(
-              index: 1,
-              kind: SelfSwitch,
-            ),
-            Parameter(
-              index: 2,
-              kind: IntBool,
-            )
-          ],
-          [
-
-          ]
-        ]),
-      )
+      
     ],
     branches: [
       Branch(

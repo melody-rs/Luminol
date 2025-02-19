@@ -22,9 +22,12 @@
 // terms of the Steamworks API by Valve Corporation, the licensors of this
 // Program grant you additional permission to convey the resulting work.
 
+use egui::Widget;
 use indextree::{Arena, NodeId};
 use luminol_data::commands::{Command as CommandDesc, CommandKind};
 use luminol_data::{rpg, CommandDB};
+
+use crate::components::syntax_highlighting;
 
 pub struct CommandView {
     id_source: egui::Id,
@@ -74,82 +77,93 @@ impl CommandView {
         this_id: NodeId,
     ) {
         let command = commands[this_id].get();
-        match command_db.get(command.code) {
-            Some(desc) => match &desc.kind {
-                CommandKind::Branch {
-                    branches,
-                    terminator,
-                    command_contains_branch,
-                    ..
-                } => {
-                    let mut children = this_id.children(commands);
-                    self.collapsing_state_for(ui.ctx(), this_id)
-                        .show_header(ui, |ui| {
-                            let resp = ui.button(egui::RichText::new(&desc.name).color(desc.color));
-                            if resp.clicked() {
-                                self.state = State::Editing { which: this_id }
+        let Some(desc) = command_db.get(command.code) else {
+            let text = egui::RichText::new(format!("🔥 Unrecognized command {}", command.code))
+                .color(egui::Color32::RED);
+            ui.label(text);
+            return;
+        };
+
+        match &desc.kind {
+            CommandKind::Branch {
+                branches,
+                terminator,
+                command_contains_branch,
+                ..
+            } => {
+                let mut children = this_id.children(commands);
+                self.collapsing_state_for(ui.ctx(), this_id)
+                    .show_header(ui, |ui| {
+                        let resp = ui.button(egui::RichText::new(&desc.name).color(desc.color));
+                        if resp.clicked() {
+                            self.state = State::Editing { which: this_id }
+                        }
+                    })
+                    .body(|ui| {
+                        if *command_contains_branch {
+                            let branch = children.next().unwrap();
+                            for child in branch.children(commands) {
+                                self.ui_for_command(ui, command_db, commands, child);
                             }
-                        })
-                        .body(|ui| {
-                            if *command_contains_branch {
-                                let branch = children.next().unwrap();
-                                for child in branch.children(commands) {
-                                    self.ui_for_command(ui, command_db, commands, child);
-                                }
-                                self.display_insert(ui, this_id);
-                            }
-                        });
-                    for branch in children {
-                        let code = commands[branch].get().code;
-                        let Some(branch_desc) = branches.iter().find(|b| b.code == code) else {
-                            continue;
-                        };
-                        self.collapsing_state_for(ui.ctx(), branch)
-                            .show_header(ui, |ui| {
-                                ui.label(egui::RichText::new(&branch_desc.name).color(desc.color));
-                            })
-                            .body(|ui| {
-                                for child in branch.children(commands) {
-                                    self.ui_for_command(ui, command_db, commands, child);
-                                }
-                                self.display_insert(ui, this_id);
-                            });
-                    }
-                    ui.indent("??", |ui| {
-                        ui.label(egui::RichText::new(&terminator.name).color(desc.color));
-                    });
-                }
-                CommandKind::Multi(_) => {
-                    ui.label(egui::RichText::new(&desc.name).color(desc.color));
-                    let text = command.parameters[0].as_string().unwrap();
-                    ui.indent("??", |ui| ui.label(text));
-                }
-                CommandKind::Regular { .. } => {
-                    let resp = ui.button(egui::RichText::new(&desc.name).color(desc.color));
-                    if resp.clicked() {
-                        self.state = State::Editing { which: this_id }
-                    }
-                }
-                CommandKind::MoveRoute(_) => {
-                    ui.label(egui::RichText::new(&desc.name).color(desc.color));
-                    let route = command.parameters[0].as_moveroute().unwrap();
-                    ui.indent("??", |ui| {
-                        for command in route.list.iter() {
-                            // TODO
-                            let text =
-                                egui::RichText::new(format!("{command:?}")).color(desc.color);
-                            ui.label(text);
+                            self.display_insert(ui, this_id);
                         }
                     });
+                for branch in children {
+                    let code = commands[branch].get().code;
+                    let Some(branch_desc) = branches.iter().find(|b| b.code == code) else {
+                        continue;
+                    };
+                    self.collapsing_state_for(ui.ctx(), branch)
+                        .show_header(ui, |ui| {
+                            ui.label(egui::RichText::new(&branch_desc.name).color(desc.color));
+                        })
+                        .body(|ui| {
+                            for child in branch.children(commands) {
+                                self.ui_for_command(ui, command_db, commands, child);
+                            }
+                            self.display_insert(ui, this_id);
+                        });
                 }
-                CommandKind::Blank => {
-                    ui.label(egui::RichText::new(&desc.name).color(desc.color));
+                ui.indent("??", |ui| {
+                    ui.label(egui::RichText::new(&terminator.name).color(desc.color));
+                });
+            }
+            CommandKind::Multi { is_ruby, .. } => {
+                ui.label(egui::RichText::new(&desc.name).color(desc.color));
+                let text = command.parameters[0].as_string().unwrap();
+                ui.indent("??", |ui| {
+                    if *is_ruby {
+                        let job = syntax_highlighting::highlight(
+                            ui.ctx(),
+                            luminol_config::CodeTheme::dark(),
+                            text,
+                            "rb",
+                        );
+                        egui::Label::new(job).ui(ui);
+                    } else {
+                        ui.label(text);
+                    }
+                });
+            }
+            CommandKind::Regular { .. } => {
+                let resp = ui.button(egui::RichText::new(&desc.name).color(desc.color));
+                if resp.clicked() {
+                    self.state = State::Editing { which: this_id }
                 }
-            },
-            None => {
-                let text = egui::RichText::new(format!("🔥 Unrecognized command {}", command.code))
-                    .color(egui::Color32::RED);
-                ui.label(text);
+            }
+            CommandKind::MoveRoute(_) => {
+                ui.label(egui::RichText::new(&desc.name).color(desc.color));
+                let route = command.parameters[1].as_moveroute().unwrap();
+                ui.indent("??", |ui| {
+                    for command in route.list.iter() {
+                        // TODO
+                        let text = egui::RichText::new(format!("{command:?}")).color(desc.color);
+                        ui.label(text);
+                    }
+                });
+            }
+            CommandKind::Blank => {
+                ui.label(egui::RichText::new(&desc.name).color(desc.color));
             }
         }
     }

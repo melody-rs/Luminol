@@ -26,7 +26,10 @@ pub enum CommandKind {
     /// Multi-string command.
     /// Special in that every newline is an extra command,
     /// and every command after the first one has a continuation id.
-    Multi(Code),
+    Multi {
+        cont: Code,
+        is_ruby: bool,
+    },
     Regular {
         parameters: Parameters,
     },

@@ -164,7 +164,7 @@ impl RawEventPage {
                         }
                     }
                 }
-                CommandKind::Multi(cont) => {
+                CommandKind::Multi { cont, .. } => {
                     let command = commands[current].get_mut();
                     let text = command.parameters[0].as_string_mut().unwrap();
                     while let Some(next) = iter.next_if(|next| next.code == *cont) {

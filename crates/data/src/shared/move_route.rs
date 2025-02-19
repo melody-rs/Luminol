@@ -32,10 +32,4 @@ pub struct MoveRoute {
 pub struct MoveCommand {
     pub code: u16,
     pub parameters: Vec<ParameterType>,
-
-    #[marshal(default = "rand::random")]
-    #[marshal(skip)]
-    #[serde(default = "rand::random")]
-    #[serde(skip)]
-    pub guid: u16,
 }

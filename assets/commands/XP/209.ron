@@ -1,0 +1,5 @@
+Command(
+    name: "Set Move Route",
+    kind: MoveRoute(509),
+    color: Color32((252, 63, 63, 255))
+)
